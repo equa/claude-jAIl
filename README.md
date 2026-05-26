@@ -46,7 +46,47 @@ sudo apt install podman jq
 
 ## First-time Setup
 
-### 1. Authenticate with Claude
+### 1. Build the container image
+
+```bash
+# Rootful (default):
+sudo podman build --dns 8.8.8.8 -t claude-code .
+
+# Rootless:
+podman build -t claude-code .
+```
+
+This installs Claude Code via the official installer and adds common
+development tools (`git`, `python3`, `ripgrep`, `tmux`, `vim`, …).
+
+> **Note:** `--dns 8.8.8.8` is needed if your system DNS is on a private subnet
+> blocked by the firewall rules. Omit it if your DNS is publicly reachable.
+
+### 2. Create the container network
+
+```bash
+# Rootful (default):
+sudo podman network create claude-code-net
+
+# Rootless:
+podman network create claude-code-net
+```
+
+This only needs to be done once. The network persists across reboots.
+
+### 3. Install firewall rules
+
+```bash
+sudo ./claude.sh firewall
+```
+
+This adds iptables `FORWARD DROP` rules that prevent the container from
+reaching your private/office subnets while leaving internet access intact.
+
+> **Note:** These rules are not persistent across reboots. Re-run after each
+> reboot, or add it to a startup script / systemd unit.
+
+### 4. Authenticate with Claude
 
 There are two ways to authenticate, depending on your plan:
 
@@ -72,46 +112,6 @@ browser.
 
 Paste the code back into Claude when prompted. Login state is stored in the
 `claude-config` volume and persists across sessions.
-
-### 2. Build the container image
-
-```bash
-# Rootful (default):
-sudo podman build --dns 8.8.8.8 -t claude-code .
-
-# Rootless:
-podman build -t claude-code .
-```
-
-This installs Claude Code via the official installer and adds common
-development tools (`git`, `python3`, `ripgrep`, `tmux`, `vim`, …).
-
-> **Note:** `--dns 8.8.8.8` is needed if your system DNS is on a private subnet
-> blocked by the firewall rules. Omit it if your DNS is publicly reachable.
-
-### 3. Create the container network
-
-```bash
-# Rootful (default):
-sudo podman network create claude-code-net
-
-# Rootless:
-podman network create claude-code-net
-```
-
-This only needs to be done once. The network persists across reboots.
-
-### 4. Install firewall rules
-
-```bash
-sudo ./claude.sh firewall
-```
-
-This adds iptables `FORWARD DROP` rules that prevent the container from
-reaching your private/office subnets while leaving internet access intact.
-
-> **Note:** These rules are not persistent across reboots. Re-run after each
-> reboot, or add it to a startup script / systemd unit.
 
 ---
 
