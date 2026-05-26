@@ -8,7 +8,8 @@ fi
 
 CLAUDE_VOLUME=claude-config
 CLAUDE_NET=claude-code-net
-CLAUDE_VOLUME_BACKUP_DIR=/home/niklas/containers/anthropic/claude/backup-volumes
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+CLAUDE_VOLUME_BACKUP_DIR=${CLAUDE_BACKUP_DIR:-$SCRIPT_DIR/backup-volumes}
 
 PROTECTED_SUBNETS="10.228.0.0/16 10.81.0.0/16 192.168.0.0/16 172.16.0.0/12"
 
