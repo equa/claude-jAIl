@@ -96,6 +96,19 @@ esac
 
 check_subnet $CLAUDE_NET
 
+# Warn if the firewall rules are not in place.
+# Run  ./claude.sh firewall  (requires sudo) to install them.
+__subnet__=$(get_subnet $CLAUDE_NET)
+__rules_missing__=0
+for subnet in $PROTECTED_SUBNETS
+do
+    sudo iptables -C FORWARD -s "$__subnet__" -d "$subnet" -j DROP 2>/dev/null \
+        || { __rules_missing__=1; break; }
+done
+if [[ $__rules_missing__ -eq 1 ]]; then
+    echo "WARNING: Firewall rules are not active. Run: sudo ./claude.sh firewall"
+fi
+
 PODMAN_COMPOSE_PROVIDER=podman
 
 podman run -it --rm \
@@ -106,4 +119,4 @@ podman run -it --rm \
   --network=$CLAUDE_NET \
   --cap-drop ALL \
   -w /workspace \
-  claude-code $@
+  claude-code "$@"

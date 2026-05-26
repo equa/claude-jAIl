@@ -102,6 +102,15 @@ The current directory is mounted as `/workspace` inside the container.
 alias claude='/path/to/this/repo/claude.sh'
 ```
 
+Any arguments after `./claude.sh` that don't match a subcommand are passed
+straight through to the `claude` binary inside the container:
+
+```bash
+./claude.sh --resume <session-id>   # resume a specific session
+./claude.sh --continue              # continue the most recent session
+./claude.sh --model claude-opus-4-7 # override the model
+```
+
 Claude's configuration and memory live in the `claude-config` named volume
 and persist across sessions regardless of which project you launch from.
 
