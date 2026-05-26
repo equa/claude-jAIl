@@ -243,9 +243,9 @@ The `CTR` environment variable selects the container runtime. It defaults to
 
 ```bash
 # Rootless (default — simpler, but firewall rules have no effect):
-./claude.sh
+CTR=podman ./claude.sh
 
-# Rootful Podman (firewall works, image/volume/network must be built as root):
+# Rootful Podman (default, firewall works, image/volume/network must be built as root):
 CTR="sudo podman" ./claude.sh
 
 # Docker:
