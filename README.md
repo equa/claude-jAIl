@@ -259,6 +259,28 @@ sudo podman build -t claude-code .
 sudo podman network create claude-code-net
 ```
 
+### Migrating an existing volume from rootless to rootful
+
+The rootless and rootful volume stores are separate. To carry over your existing
+Claude config and memory:
+
+```bash
+# 1. Create the volume in the rootful store
+sudo podman volume create claude-config
+
+# 2. Pipe the contents across (no temp file needed)
+podman volume export claude-config | sudo podman volume import claude-config -
+```
+
+After importing, the volume contents will be owned by root because the import
+ran as root. The container process runs as the `node` user and cannot write to
+its own home directory. Fix ownership with a throwaway container:
+
+```bash
+sudo podman run --rm -v claude-config:/home/node node:20-slim \
+  chown -R node:node /home/node
+```
+
 Rootful and rootless Podman are fully independent — separate image stores,
 volumes, and networks. Switching one container to rootful has no effect on
 any other rootless Podman work on the same machine.
