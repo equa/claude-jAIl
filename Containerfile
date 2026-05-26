@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim \
     procps \
     sbcl \
+    iputils-ping \
+    telnet \
+    iproute2 \
+    traceroute \
     && rm -rf /var/lib/apt/lists/*
 
 # Install claude using native installer. Keep an eye on Claude docs for when
