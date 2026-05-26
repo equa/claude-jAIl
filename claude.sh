@@ -13,11 +13,16 @@ CLAUDE_VOLUME_BACKUP_DIR=${CLAUDE_BACKUP_DIR:-$SCRIPT_DIR/backup-volumes}
 
 PROTECTED_SUBNETS="10.228.0.0/16 10.81.0.0/16 192.168.0.0/16 172.16.0.0/12"
 
+# Public DNS server for the container.
+# If the system DNS is on a protected subnet it will be unreachable from the
+# firewalled container. Override via environment variable if needed.
+CONTAINER_DNS=${CONTAINER_DNS:-8.8.8.8}
+
 # Container runtime. Default is rootless Podman.
 # Override via environment variable:
 #   CTR="sudo podman" ./claude.sh   — rootful Podman (iptables FORWARD works)
 #   CTR=docker ./claude.sh          — Docker
-CTR=${CTR:-podman}
+CTR=${CTR:-"sudo podman"}
 
 # User mapping into the container.
 # Rootless Podman: --userns=keep-id maps the host UID directly.
@@ -145,6 +150,7 @@ fi
 
 $CTR run -it --rm \
   $USER_MAP \
+  --dns $CONTAINER_DNS \
   -v $CLAUDE_VOLUME:/home/node \
   -v $(pwd):/workspace:z \
   --security-opt no-new-privileges \

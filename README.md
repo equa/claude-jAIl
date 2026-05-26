@@ -72,6 +72,13 @@ sudo podman build -t claude-code .
 This installs Claude Code via the official installer and adds common
 development tools (`git`, `python3`, `ripgrep`, `tmux`, `vim`, …).
 
+> **Note:** If your system DNS is on a private subnet (e.g. `10.x.x.x`) and
+> you are building rootful with firewall rules active, the build container
+> cannot reach the DNS server. Pass a public DNS server explicitly:
+> ```bash
+> sudo podman build --dns 8.8.8.8 -t claude-code .
+> ```
+
 ### 4. Create the container network
 
 ```bash
@@ -253,7 +260,11 @@ CTR=podman                         # container runtime (podman / sudo podman / d
 CLAUDE_VOLUME=claude-config        # named volume for Claude's home
 CLAUDE_NET=claude-code-net         # container network name
 PROTECTED_SUBNETS="..."            # subnets blocked by the firewall subcommand
+CONTAINER_DNS=8.8.8.8             # DNS used inside the container
 ```
+
+If your system DNS is reachable from the container (i.e. not on a protected
+subnet), you can restore it with `CONTAINER_DNS=<your-dns-ip> ./claude.sh`.
 
 `CLAUDE_BACKUP_DIR` can be set as an environment variable (see [Backup](#backup) above).
 
