@@ -14,13 +14,13 @@ claude.sh         — launch script (run, firewall, backup, help)
 .env              — your ANTHROPIC_API_KEY (not committed)
 ```
 
-The default mode is **rootless Podman**:
-- `--userns=keep-id` maps the host UID into the container so file ownership is correct
-- A dedicated network (`claude-code-net`) with optional iptables firewall rules
+The default mode is **rootful Podman** (`CTR="sudo podman"`):
+- `--user UID:GID` runs the container process as your host user
+- A dedicated network (`claude-code-net`) with iptables `FORWARD` firewall rules
 - All Linux capabilities dropped, no privilege escalation
 
-The runtime is controlled by the `CTR` environment variable and defaults to `podman`.
-See [Container Runtime](#container-runtime-ctr) for rootful Podman and Docker options.
+Rootless Podman (`CTR=podman`) is simpler to set up but the firewall rules have
+no effect — see [Container Runtime](#container-runtime-ctr) for details.
 
 ---
 
@@ -28,9 +28,9 @@ See [Container Runtime](#container-runtime-ctr) for rootful Podman and Docker op
 
 | Tool | Purpose |
 |------|---------|
-| [Podman](https://podman.io/) | Container runtime (rootless) |
+| [Podman](https://podman.io/) | Container runtime |
 | `jq` | Parsing network info in `claude.sh` |
-| `sudo` + `iptables` | Optional: subnet firewall rules |
+| `sudo` + `iptables` | Firewall rules (rootful mode) |
 
 On Fedora/RHEL:
 ```bash
@@ -76,36 +76,32 @@ Paste the code back into Claude when prompted. Login state is stored in the
 ### 2. Build the container image
 
 ```bash
-# Rootless (default):
-podman build -t claude-code .
+# Rootful (default):
+sudo podman build --dns 8.8.8.8 -t claude-code .
 
-# Rootful (recommended for effective firewall isolation):
-sudo podman build -t claude-code .
+# Rootless:
+podman build -t claude-code .
 ```
 
 This installs Claude Code via the official installer and adds common
 development tools (`git`, `python3`, `ripgrep`, `tmux`, `vim`, …).
 
-> **Note:** If your system DNS is on a private subnet (e.g. `10.x.x.x`) and
-> you are building rootful with firewall rules active, the build container
-> cannot reach the DNS server. Pass a public DNS server explicitly:
-> ```bash
-> sudo podman build --dns 8.8.8.8 -t claude-code .
-> ```
+> **Note:** `--dns 8.8.8.8` is needed if your system DNS is on a private subnet
+> blocked by the firewall rules. Omit it if your DNS is publicly reachable.
 
-### 4. Create the container network
+### 3. Create the container network
 
 ```bash
+# Rootful (default):
+sudo podman network create claude-code-net
+
 # Rootless:
 podman network create claude-code-net
-
-# Rootful:
-sudo podman network create claude-code-net
 ```
 
 This only needs to be done once. The network persists across reboots.
 
-### 5. (Recommended) Install firewall rules
+### 4. Install firewall rules
 
 ```bash
 sudo ./claude.sh firewall
@@ -114,13 +110,8 @@ sudo ./claude.sh firewall
 This adds iptables `FORWARD DROP` rules that prevent the container from
 reaching your private/office subnets while leaving internet access intact.
 
-> **Important:** iptables `FORWARD` rules are only effective with a **rootful**
-> runtime (`CTR="sudo podman"` or `CTR=docker`). With rootless Podman, container
-> traffic is handled by `pasta` in user space and bypasses the FORWARD chain
-> entirely — the rules will be present but have no effect.
-
-> **Note:** These rules are not persistent across reboots. Re-run after each reboot,
-> or add it to a startup script / systemd unit.
+> **Note:** These rules are not persistent across reboots. Re-run after each
+> reboot, or add it to a startup script / systemd unit.
 
 ---
 
@@ -219,13 +210,13 @@ a deeper explanation of how hairpin routing, loopback, and host services interac
 To inspect the volume:
 
 ```bash
-podman volume inspect claude-config
+sudo podman volume inspect claude-config
 ```
 
 To remove it (deletes all Claude memory and config!):
 
 ```bash
-podman volume rm claude-config
+sudo podman volume rm claude-config
 ```
 
 ---
@@ -233,30 +224,24 @@ podman volume rm claude-config
 ## Container Runtime (`CTR`)
 
 The `CTR` environment variable selects the container runtime. It defaults to
-`podman` (rootless). Override it per-invocation or export it in your shell profile.
+`"sudo podman"` (rootful). Override it per-invocation or export it in your
+shell profile.
 
 | Value | Mode | Firewall effective? |
 |-------|------|-------------------|
-| `podman` (default) | Rootless Podman | ✗ — pasta bypasses FORWARD |
-| `sudo podman` | Rootful Podman | ✓ |
-| `docker` | Docker (rootful by default) | ✓ |
+| `sudo podman` **(default)** | Rootful Podman | ✓ — traffic traverses the kernel FORWARD chain |
+| `docker` | Docker (rootful by default) | ✓ — same reason: rootful, kernel FORWARD chain |
+| `podman` | Rootless Podman | ✗ — `pasta` handles traffic in user space, bypassing FORWARD |
 
 ```bash
-# Rootless (default — simpler, but firewall rules have no effect):
-CTR=podman ./claude.sh
+# Rootful Podman — default, firewall works:
+./claude.sh
 
-# Rootful Podman (default, firewall works, image/volume/network must be built as root):
-CTR="sudo podman" ./claude.sh
+# Rootless Podman — override, simpler setup but no effective firewall:
+CTR=podman ./claude.sh
 
 # Docker:
 CTR=docker ./claude.sh
-```
-
-For rootful Podman, build the image and create the network as root first (one time):
-
-```bash
-sudo podman build -t claude-code .
-sudo podman network create claude-code-net
 ```
 
 ### Migrating an existing volume from rootless to rootful
@@ -292,7 +277,7 @@ any other rootless Podman work on the same machine.
 The top of `claude.sh` exposes the main configuration variables:
 
 ```bash
-CTR=podman                         # container runtime (podman / sudo podman / docker)
+CTR="sudo podman"                  # container runtime (sudo podman / podman / docker)
 CLAUDE_VOLUME=claude-config        # named volume for Claude's home
 CLAUDE_NET=claude-code-net         # container network name
 PROTECTED_SUBNETS="..."            # subnets blocked by the firewall subcommand
