@@ -46,20 +46,34 @@ sudo apt install podman jq
 
 ## First-time Setup
 
-### 1. Get your Anthropic API key
+### 1. Authenticate with Claude
 
-Sign up at <https://console.anthropic.com/> and create an API key.
+There are two ways to authenticate, depending on your plan:
 
-### 2. Create `.env`
-
+**API key** (individual/API plans):
 ```bash
 cp .env.example .env
-# Edit .env and paste your key
+# Edit .env and paste your ANTHROPIC_API_KEY
 ```
-
 `.env` is gitignored and never committed.
 
-### 3. Build the container image
+**Web login** (Claude.ai Pro / Team plans):
+
+Skip the `.env` step. After the container starts, run `/login` inside Claude
+and select the Claude.ai account option. You will be given a URL to open in a
+browser.
+
+> **Important:** Open the URL in an **incognito/private browser window**. If
+> your regular browser is logged into a different Claude account (personal vs
+> team, or a different organisation), the auth URL will silently use that
+> session and redirect you to the sign-up page instead of showing the
+> authorisation code. Incognito gives a clean session tied to whichever account
+> you log into there.
+
+Paste the code back into Claude when prompted. Login state is stored in the
+`claude-config` volume and persists across sessions.
+
+### 2. Build the container image
 
 ```bash
 # Rootless (default):
