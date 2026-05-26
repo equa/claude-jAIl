@@ -65,6 +65,20 @@ function protect_subnets()
     echo -e "Subnets protection done."
 }
 
+function firewall_active()
+{
+    # Returns 0 if all DROP rules are in place, 1 if any are missing.
+    # Read-only — does not modify iptables.
+    local __subnet__
+    __subnet__=$(get_subnet $1)
+    for subnet in $PROTECTED_SUBNETS
+    do
+        sudo iptables -C FORWARD -s "$__subnet__" -d "$subnet" -j DROP 2>/dev/null \
+            || return 1
+    done
+    return 0
+}
+
 function backup()
 {
     mkdir -p $CLAUDE_VOLUME_BACKUP_DIR
@@ -98,16 +112,8 @@ check_subnet $CLAUDE_NET
 
 # Warn if the firewall rules are not in place.
 # Run  ./claude.sh firewall  (requires sudo) to install them.
-__subnet__=$(get_subnet $CLAUDE_NET)
-__rules_missing__=0
-for subnet in $PROTECTED_SUBNETS
-do
-    sudo iptables -C FORWARD -s "$__subnet__" -d "$subnet" -j DROP 2>/dev/null \
-        || { __rules_missing__=1; break; }
-done
-if [[ $__rules_missing__ -eq 1 ]]; then
-    echo "WARNING: Firewall rules are not active. Run: sudo ./claude.sh firewall"
-fi
+firewall_active $CLAUDE_NET \
+    || echo "WARNING: Firewall rules are not active. Run: sudo ./claude.sh firewall"
 
 PODMAN_COMPOSE_PROVIDER=podman
 
