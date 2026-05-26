@@ -171,17 +171,17 @@ CLAUDE_BACKUP_DIR=/mnt/nas/backups ./claude.sh backup
 
 ## Networking Notes
 
-### Reaching host services from inside the container
+### Container flags reference
 
-The container's virtual gateway (`10.x.x.1`) is not a real host IP. Use the
-hostname Podman injects into every container instead:
-
-```bash
-# From inside the container:
-curl http://host.containers.internal:<port>/
-```
-
-This works regardless of which physical network the host is on.
+| Flag | Effect |
+|------|--------|
+| `--user UID:GID` | Runs process as your host user (rootful); `--userns=keep-id` used instead for rootless |
+| `--dns 8.8.8.8` | Public DNS — avoids blocked private DNS servers inside the firewalled container |
+| `-v claude-config:/home/node` | Persistent named volume for Claude's config and memory |
+| `-v $(pwd):/workspace:z` | Current host directory mounted as `/workspace` |
+| `--network=claude-code-net` | Dedicated container network (must be pre-created) |
+| `--cap-drop ALL` | No Linux capabilities granted |
+| `--security-opt no-new-privileges` | No privilege escalation via setuid |
 
 ### Firewall details
 
@@ -193,10 +193,44 @@ to these private ranges by default:
 ```
 
 Edit the `PROTECTED_SUBNETS` variable at the top of `claude.sh` to match
-your network. Internet access (public IPs) is unaffected.
+your network. Internet access (public IPs) is unaffected. The rules use
+`-I` (insert) with an existence check (`-C`) so they are idempotent — safe
+to run multiple times.
 
-See [README-claude-code-networking.md](README-claude-code-networking.md) for
-a deeper explanation of how hairpin routing, loopback, and host services interact.
+> **Note:** iptables `FORWARD` rules only work with a rootful runtime. With
+> rootless Podman, `pasta` handles container networking entirely in user space
+> and the FORWARD chain is never traversed.
+
+### Reaching host services from inside the container
+
+The container's virtual gateway (e.g. `10.89.5.1`) is **not a real IP on the
+host** — it is a virtual address managed by the container network stack.
+Connecting to host services via that address will be refused.
+
+Instead, use the hostname Podman injects into every container's `/etc/hosts`:
+
+```bash
+# From inside the container:
+curl http://host.containers.internal:<port>/
+```
+
+`host.containers.internal` points to a stable link-local address (`169.254.1.2`)
+and works regardless of which physical network the host is on.
+
+### Why FORWARD rules don't block access to the host itself
+
+The iptables `FORWARD` chain handles traffic being routed *through* the host
+to another machine. Traffic from the container destined *for the host itself*
+traverses the `INPUT` chain instead, which has policy `ACCEPT`. This is why
+`host.containers.internal` works even with protective FORWARD rules in place.
+
+### Reaching services in other containers
+
+If the target service runs in another Podman container with a published port
+(e.g. `-p 5002:5002`), use `host.containers.internal` to reach it. Direct
+container-to-container routing via the gateway address does not work for
+hairpin traffic (a container trying to reach a port published on the same
+host).
 
 ---
 
