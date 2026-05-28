@@ -18,7 +18,7 @@ PROTECTED_SUBNETS="10.228.0.0/16 10.81.0.0/16 192.168.0.0/16 172.16.0.0/12"
 # firewalled container. Override via environment variable if needed.
 CONTAINER_DNS=${CONTAINER_DNS:-8.8.8.8}
 
-# Container runtime. Default is rootless Podman.
+# Container runtime. Default is rootfull Podman.
 # Override via environment variable:
 #   CTR="sudo podman" ./claude.sh   — rootful Podman (iptables FORWARD works)
 #   CTR=docker ./claude.sh          — Docker
