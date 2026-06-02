@@ -62,7 +62,11 @@ function Invoke-Runtime {
     # Run the configured container runtime, splitting CTR on whitespace so a
     # multi-word value (e.g. "podman --log-level debug") still works.
     $parts = $Runtime -split '\s+'
-    & $parts[0] @($parts[1..($parts.Length - 1)]) @args
+    $exe = $parts[0]
+    # Guard the single-element case: $parts[1..0] is a DESCENDING range (1,0)
+    # in PowerShell, not empty, so it would pass podman to itself as an arg.
+    $rest = if ($parts.Length -gt 1) { $parts[1..($parts.Length - 1)] } else { @() }
+    & $exe @rest @args
 }
 
 function Test-Subnet {
