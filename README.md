@@ -115,6 +115,85 @@ Paste the code back into Claude when prompted. Login state is stored in the
 
 ---
 
+## Windows 11 (Podman Desktop)
+
+The Linux setup above ports to Windows 11 with [Podman Desktop](https://podman-desktop.io/).
+Use `claude.ps1` (a PowerShell port of `claude.sh`) instead of the shell script;
+the `Containerfile` is reused unchanged.
+
+Podman Desktop runs containers inside a WSL2-backed **Podman machine**, so the
+`podman` CLI behaves like it does on Linux once the machine is started.
+
+### Setup
+
+```powershell
+# 1. Initialise and start the Podman machine (one time)
+podman machine init
+podman machine start
+
+# 2. Build the image (Containerfile is reused as-is)
+podman build --dns 8.8.8.8 -t claude-code .
+
+# 3. Create the container network (one time)
+podman network create claude-code-net
+```
+
+Authenticate exactly as on Linux — either copy `.env.example` to `.env` and
+add your `ANTHROPIC_API_KEY`, or use the `/login` web flow inside the container
+(still open the auth URL in an **incognito** window — see
+[Authenticate with Claude](#4-authenticate-with-claude)).
+
+### Daily use
+
+```powershell
+# Launch in the current directory
+.\claude.ps1
+
+# Pass-through args go straight to the claude binary
+.\claude.ps1 --continue
+.\claude.ps1 --resume <session-id>
+
+# Subcommands
+.\claude.ps1 backup      # export claude-config volume to backup-volumes\
+.\claude.ps1 help        # print this README
+```
+
+> **Execution policy:** if PowerShell blocks the script, allow local scripts
+> with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or run it once via
+> `powershell -ExecutionPolicy Bypass -File .\claude.ps1`.
+
+The `CTR`, `CONTAINER_DNS`, and `CLAUDE_BACKUP_DIR` environment-variable
+overrides work the same as on Linux (set `$env:CTR = "docker"` for Docker Desktop).
+
+### Differences from the Linux launcher
+
+| Linux (`claude.sh`) | Windows (`claude.ps1`) | Why |
+|---|---|---|
+| `--user` / `--userns=keep-id` | omitted | The Podman machine maps host file access for us |
+| `-v $(pwd):/workspace:z` | no `:z` | The `z` suffix is an SELinux relabel — Linux-only |
+| `sudo podman` + iptables firewall | dropped | No `sudo`/`iptables` on Windows |
+| `gzip` pipe for backup | `volume export -o <file>.tar` | No `gzip` on Windows; plain tar |
+
+Everything else is identical: `--dns`, `--cap-drop ALL`,
+`--security-opt no-new-privileges`, `--network`, and the two volume mounts
+(`claude-config` → `/home/node`, current directory → `/workspace`).
+
+### Phase 2 — firewall
+
+The subnet firewall is **not implemented** on Windows. The Linux version
+relies on host `iptables FORWARD ... DROP` rules, which do not exist here, and
+container traffic is NAT'd through the WSL2 machine. Equivalent isolation would
+come from one of:
+
+- **Windows Defender Firewall** outbound rules scoped to the Podman machine's
+  WSL network interface, or
+- a Podman **`internal` network** plus a controlled egress path.
+
+Neither is a drop-in replacement for the iptables rules, so it is deferred.
+The `.\claude.ps1 firewall` subcommand prints this note and exits.
+
+---
+
 ## Daily Use
 
 **Always run `claude.sh` from the project directory you want to work in.**
